@@ -14,12 +14,22 @@ export interface Batch {
 }
 
 
-export function createBatches(hooks: Hooks, range?: Range): Batch[] {
+export function createBatches(hooks: Hooks, blockRange?: Range): Batch[] {
     let batches: Batch[] = []
 
+    function getRange(hook: {range?: Range}): Range | undefined {
+        let range: Range | undefined = hook.range || {from: 0}
+        if (blockRange) {
+            range = rangeIntersection(range, blockRange)
+        }
+        return range
+    }
+
     hooks.pre.forEach(hook => {
+        let range = getRange(hook)
+        if (!range) return
         batches.push({
-            range: hook.range || {from: 0},
+            range,
             pre: [hook.handler],
             post: [],
             events: {}
@@ -27,8 +37,10 @@ export function createBatches(hooks: Hooks, range?: Range): Batch[] {
     })
 
     hooks.post.forEach(hook => {
+        let range = getRange(hook)
+        if (!range) return
         batches.push({
-            range: hook.range || {from: 0},
+            range,
             pre: [],
             post: [hook.handler],
             events: {}
@@ -36,8 +48,10 @@ export function createBatches(hooks: Hooks, range?: Range): Batch[] {
     })
 
     hooks.event.forEach(hook => {
+        let range = getRange(hook)
+        if (!range) return
         batches.push({
-            range: hook.range || {from: 0},
+            range,
             pre: [],
             post: [],
             events: {
@@ -48,13 +62,6 @@ export function createBatches(hooks: Hooks, range?: Range): Batch[] {
 
     batches = mergeBatches(batches)
 
-    if (range != null) {
-        trimToStart(batches, range.from)
-        if (range.to != null) {
-            trimFromEnd(batches, range.to)
-        }
-    }
-
     return batches
 }
 
@@ -63,7 +70,7 @@ export function mergeBatches(batches: Batch[]): Batch[] {
     if (batches.length <= 1) return batches
 
     let union: Batch[] = []
-    let heap = new Heap<Batch>((a, b) => b.range.from - a.range.from)
+    let heap = new Heap<Batch>((a, b) => a.range.from - b.range.from)
 
     heap.init(batches.slice())
 
@@ -120,39 +127,4 @@ function mergeHandlers<T>(a: Record<string, T[]>, b: Record<string, T[]>): Recor
         add(b, key)
     }
     return result
-}
-
-
-function trimToStart(batches: Batch[], start: number): void {
-    let b: Batch | undefined
-    while (b = batches[0]) {
-        let end = b.range.to ?? Infinity
-        if (start <= end) {
-            batches[0] = {
-                ...b,
-                range: {from: start, to: b.range.to}
-            }
-            return
-        } else {
-            batches.shift()
-        }
-    }
-}
-
-
-function trimFromEnd(batches: Batch[], end: number): void {
-    for (let i = 0; i < batches.length; i++) {
-        let b = batches[i]
-        let to = b.range.to ?? end
-        if (end < to) {
-            batches[i] = {
-                ...b,
-                range: {from: b.range.from, to: end}
-            }
-            while (batches.length > i + 1) {
-                batches.pop()
-            }
-            return
-        }
-    }
 }

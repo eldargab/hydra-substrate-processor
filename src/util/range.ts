@@ -13,11 +13,6 @@ export interface Range {
 }
 
 
-export function isWithinRange(range: Range, num: number): boolean {
-    return range.from <= num && num <= (range.to ?? Infinity)
-}
-
-
 export function rangeIntersection(a: Range, b: Range): Range | undefined {
     let beg = Math.max(a.from, b.from)
     let end = Math.min(a.to ?? Infinity, b.to ?? Infinity)
@@ -46,33 +41,4 @@ export function rangeDifference(a: Range, b: Range): Range[] {
         }
     }
     return result
-}
-
-
-export function rangeUnion(ranges: Range[]): Range[] {
-    if (ranges.length == 0) return ranges
-    ranges = ranges.slice().sort(
-        (a, b) => a.from - b.from
-    )
-    let current = {...ranges[0]}
-    let union: Range[] = [current]
-    if (current.to == null) return union
-    for (let i = 0; i < ranges.length; i++) {
-        let range = ranges[i]
-        let from = range.from
-        if (current.to < from) {
-            current = {...range}
-            union.push(current)
-            if (current.to == null) return union
-        } else {
-            let end = range.to
-            if (end == null) {
-                current.to = undefined
-                return union
-            } else {
-                current.to = Math.max(current.to, end)
-            }
-        }
-    }
-    return union
 }
