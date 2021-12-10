@@ -15,7 +15,7 @@ export interface Range {
 
 export function rangeIntersection(a: Range, b: Range): Range | undefined {
     let beg = Math.max(a.from, b.from)
-    let end = Math.min(a.to ?? Infinity, b.to ?? Infinity)
+    let end = Math.min(rangeEnd(a), rangeEnd(b))
     if (beg > end) return undefined
     if (end === Infinity) {
         return {from: beg}
@@ -32,7 +32,7 @@ export function rangeDifference(a: Range, b: Range): Range[] {
     if (a.from < i.from) {
         result.push({from: a.from, to: i.from - 1})
     }
-    if (i.to != null && i.to < (a.to ?? Infinity)) {
+    if (i.to != null && i.to < rangeEnd(a)) {
         let from = i.to + 1
         if (a.to) {
             result.push({from, to: a.to})
@@ -41,4 +41,9 @@ export function rangeDifference(a: Range, b: Range): Range[] {
         }
     }
     return result
+}
+
+
+export function rangeEnd(range: Range): number {
+    return range.to ?? Infinity
 }

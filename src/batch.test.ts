@@ -2,7 +2,7 @@ import assert from "assert"
 import * as fc from "fast-check"
 import {createBatches} from "./batch"
 import {QualifiedName} from "./interfaces/substrate"
-import {Range, rangeIntersection} from "./util/range"
+import {Range, rangeEnd, rangeIntersection} from "./util/range"
 import {assertNotNull} from "./util/util"
 
 
@@ -87,7 +87,7 @@ describe('batching', function () {
             for (let i = 1; i < batches.length; i++) {
                 let current = batches[i].range
                 let prev = batches[i-1].range
-                if ((prev.to ?? Infinity) >= current.from) return false
+                if (rangeEnd(prev) >= current.from) return false
             }
         })
     })
@@ -142,7 +142,7 @@ describe('batching', function () {
                 function call(h: AEventHandler | ABlockHandler): void {
                     let range = assertNotNull(handlers.get(h))
                     assert(b.range.from == range.from)
-                    if (b.range.to != null && b.range.to < (range.to ?? Infinity)) {
+                    if (b.range.to != null && b.range.to < rangeEnd(range)) {
                         handlers.set(h, {...range, from: b.range.to + 1})
                     } else {
                         handlers.set(h, undefined)
@@ -157,7 +157,9 @@ describe('batching', function () {
             })
 
             return Array.from(handlers.values()).every(r => r == null)
-        }))
+        }), {
+            numRuns: 5000
+        })
     })
 })
 

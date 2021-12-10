@@ -5,7 +5,7 @@ import {Hooks} from "./interfaces/hooks"
 import {SubstrateBlock, SubstrateEvent} from "./interfaces/substrate"
 import {AbortHandle, Channel, wait} from "./util/async"
 import {Output} from "./util/out"
-import {Range} from "./util/range"
+import {Range, rangeEnd} from "./util/range"
 import {def} from "./util/util"
 
 
@@ -65,14 +65,19 @@ export class Ingest {
             let batch = nextBatch
             let indexerHeight = await this.waitIndexerForHeight(batch.range.from)
             let blocks = await this.batchFetch(batch, indexerHeight)
+            if (blocks.length) {
+                assert(blocks.length <= this.limit)
+                assert(batch.range.from <= blocks[0].block.height)
+                assert(rangeEnd(batch.range) >= blocks[blocks.length - 1].block.height)
+                assert(indexerHeight >= blocks[blocks.length - 1].block.height)
+            }
 
-            assert(blocks.length <= this.limit)
             if (blocks.length === this.limit) {
                 let maxBlock = blocks[blocks.length-1].block.height
-                if (maxBlock < (batch.range.to ?? Infinity)) {
+                if (maxBlock < rangeEnd(batch.range)) {
                     batch.range = {from: maxBlock + 1, to: batch.range.to}
                 }
-            } else if (indexerHeight < (batch.range.to ?? Infinity)) {
+            } else if (indexerHeight < rangeEnd(batch.range)) {
                 batch.range = {from: indexerHeight + 1, to: batch.range.to}
             } else {
                 nextBatch = batches.shift()
@@ -89,7 +94,7 @@ export class Ingest {
 
     private async batchFetch(batch: Batch, indexerHeight: number): Promise<BlockData[]> {
         let from = batch.range.from
-        let to = Math.min(indexerHeight, batch.range.to ?? Infinity)
+        let to = Math.min(indexerHeight, rangeEnd(batch.range))
         assert(from <= to)
 
         let events = Object.keys(batch.events)
@@ -160,11 +165,6 @@ export class Ingest {
         let gql = q.toString()
         let {substrate_block: fetchedBlocks} = await this.indexerRequest<any>(gql)
 
-        if (fetchedBlocks.length) {
-            assert(from <= fetchedBlocks[0].height)
-            assert(to >= fetchedBlocks[fetchedBlocks.length - 1].height)
-        }
-
         let blocks = new Array<BlockData>(fetchedBlocks.length)
         for (let i = 0; i < fetchedBlocks.length; i++) {
             i > 0 && assert(fetchedBlocks[i-1].height < fetchedBlocks[i].height)
@@ -180,7 +180,6 @@ export class Ingest {
             }
             blocks[i] = {block, events}
         }
-
         return blocks
     }
 
