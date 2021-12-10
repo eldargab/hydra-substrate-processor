@@ -160,11 +160,18 @@ export class Ingest {
         let gql = q.toString()
         let {substrate_block: fetchedBlocks} = await this.indexerRequest<any>(gql)
 
+        if (fetchedBlocks.length) {
+            assert(from <= fetchedBlocks[0].height)
+            assert(to >= fetchedBlocks[fetchedBlocks.length - 1].height)
+        }
+
         let blocks = new Array<BlockData>(fetchedBlocks.length)
         for (let i = 0; i < fetchedBlocks.length; i++) {
+            i > 0 && assert(fetchedBlocks[i-1].height < fetchedBlocks[i].height)
             let {timestamp, substrate_events: events, ...block} = fetchedBlocks[i]
             block.timestamp = Number.parseInt(timestamp)
             for (let j = 0; j < events.length; j++) {
+                j > 0 && assert(fetchedBlocks[j-1].indexInBlock < fetchedBlocks[j].indexInBlock)
                 let event = events[j]
                 event.blockTimestamp = block.timestamp
                 if (event?.extrinsic?.tip != null) {
